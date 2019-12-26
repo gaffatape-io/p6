@@ -1,14 +1,15 @@
 package crud
 
 type Item struct {
-	Summary string
+	Summary     string
 	Description string
 }
 
-type KeyResult struct {
-	Item
+	type HItem struct {
+		Item
+	ParentID    string
 }
 
-type Objective struct {
-	Item	
+type Entity struct {
+	ID string
 }

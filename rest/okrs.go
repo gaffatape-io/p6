@@ -1,15 +1,16 @@
 package rest
 
 type Item struct {
-	Summary string
+	ID          string
+	Summary     string
 	Description string
+}
+
+type HItem struct {
+	Item
+	ParentID string
 }
 
 type KeyResult struct {
 	Item
-}
-
-type Objective struct {
-	Item
-	KeyResults  []KeyResult
 }

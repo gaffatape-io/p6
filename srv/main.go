@@ -1,18 +1,22 @@
 package main
 
 import (
-	"context"
 	"cloud.google.com/go/firestore"
+	"context"
 	"flag"
+	"github.com/gaffatape-io/p6/crud"
+	"github.com/gaffatape-io/p6/rest"
 	"k8s.io/klog"
-	"github.com/gaffatape-io/p6"
+	"net/http"
 )
 
 var (
 	firestoreProjectID = flag.String("firestore_project_id", "dev-p6", "Firestore project to use")
+	ipPort             = flag.String("port", ":8081", "Server ip:port moniker")
 )
 
-func main() {	
+func main() {
+	flag.Parse()
 	klog.InitFlags(nil)
 	klog.Info("p6 server starting")
 	ctx := context.Background()
@@ -21,8 +25,12 @@ func main() {
 		klog.Fatalf("firestore.NewClient(%q) failed; err:%+v", *firestoreProjectID, err)
 	}
 	store := &crud.Store{fs}
-	
 	klog.Infof("firestore:%q connected", *firestoreProjectID)
-	klog.Info(store)
-	klog.Info("p6 server started")
+
+	api := rest.NewMux(store)
+	klog.Info("p6 server listen starting")
+	err = http.ListenAndServe(*ipPort, api)
+	if err != nil {
+		klog.Fatalf("http.ListenAndServe() failed; err:%+v", err)
+	}
 }

@@ -1,16 +1,24 @@
 package rest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/gaffatape-io/p6/crud"
+	. "github.com/gaffatape-io/p6/test"
+	"k8s.io/klog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
-
-	"bytes"
-	"cloud.google.com/go/firestore"
 )
+
+func TestMain(m *testing.M) {
+	klog.InitFlags(Flags)
+	res := m.Run()
+	klog.Infof("Test finished: %d", res)
+	os.Exit(res)
+}
 
 func TestNewMux(t *testing.T) {
 	// ctx := context.Background()
@@ -52,37 +60,52 @@ func TestNewMux(t *testing.T) {
 	// }
 }
 
-func roundTrip(t *testing.T, method, target string, body interface{}) *http.Response {
-	ctx := context.Background()
-	fs, err := firestore.NewClient(ctx, "dev-p6")
-	t.Log(fs, err)
+func encodeJson(data interface{}) (*bytes.Buffer, error) {
+	buff := &bytes.Buffer{}
+	enc := json.NewEncoder(buff)
+	err := enc.Encode(data)
+	return buff, err
+}
 
-	mux := NewMux(fs)
+type RestEnv struct {
+	*Env
+	mux *http.ServeMux
+}
 
+type RestTestFunc func(context.Context, *RestEnv)
+
+func RunRestTest(t *testing.T, rtf RestTestFunc) {
+	RunTest(t, func(ctx context.Context, e *Env) {
+		mux := NewMux(&crud.Store{e.Firestore})
+		rtf(ctx, &RestEnv{e, mux})
+	})
+}
+
+func (e *RestEnv) roundTrip(ctx context.Context, method, target string, body interface{}) *http.Response {
 	buff, ok := body.(*bytes.Buffer)
+	var err error
 	if !ok {
-		buff = &bytes.Buffer{}
-		enc := json.NewEncoder(buff)
-		err := enc.Encode(body)
+		buff, err = encodeJson(body)
 		if err != nil {
-			t.Fatal(err)
+			e.Fatal(err)
 		}
 	}
 
 	req := httptest.NewRequest(method, target, buff)
+	e.Logf("RoundTrip: %+v", req)
 	resp := httptest.NewRecorder()
 
-	mux.ServeHTTP(resp, req)
+	e.mux.ServeHTTP(resp, req)
 	return resp.Result()
 }
 
-func roundTripPUT(t *testing.T, target string, body interface{}) *http.Response {
-	return roundTrip(t, http.MethodPut, target, body)
+func (e *RestEnv) roundTripPUT(ctx context.Context, target string, body interface{}) *http.Response {
+	return e.roundTrip(ctx, http.MethodPut, target, body)
 }
 
 // checkMethodAllowed issues http roundtrips for all methods defined in the http package.
 // All methods passed as supported should return something other than http.StatusMethodNotAllowed.
-func checkMethodAllowed(t *testing.T, target string, allowed ...string) {
+func (e *RestEnv) checkMethodAllowed(ctx context.Context, target string, allowed ...string) {
 	expected := map[string]bool{
 		http.MethodGet:     false,
 		http.MethodHead:    false,
@@ -99,14 +122,14 @@ func checkMethodAllowed(t *testing.T, target string, allowed ...string) {
 		expected[a] = true
 	}
 
-	for m, allowed := range expected {		
-		resp := roundTrip(t, m, target, nil)
-		t.Log(m, resp.StatusCode, http.StatusText(resp.StatusCode))
-		
+	for m, allowed := range expected {
+		resp := e.roundTrip(ctx, m, target, nil)
+		e.Log(m, resp.StatusCode, http.StatusText(resp.StatusCode))
+
 		if allowed && resp.StatusCode == http.StatusMethodNotAllowed {
-			t.Fatal()
+			e.Fatal()
 		} else if !allowed && resp.StatusCode != http.StatusMethodNotAllowed {
-			t.Fatal()
+			e.Fatal()
 		}
 	}
 }
@@ -117,7 +140,7 @@ func checkOK(t *testing.T, resp *http.Response) *http.Response {
 }
 
 // checkResponse fails the test if the response is different than code.
-func checkResponse(t *testing.T, code int, resp* http.Response) *http.Response {
+func checkResponse(t *testing.T, code int, resp *http.Response) *http.Response {
 	t.Log(code, resp.StatusCode, resp.Status, http.StatusText(resp.StatusCode))
 	if resp.StatusCode != code {
 		t.Fatal()

@@ -2,13 +2,13 @@ package rest
 
 import (
 	"encoding/json"
+	"k8s.io/klog"
 	"net/http"
 )
 
-
-func decodeRequest(r *http.Request, data interface{}) error {
+func decodeRequestBody(r *http.Request, data interface{}) error {
+	klog.V(11).Infof("decodeRequest:%+v", r)
 	dec := json.NewDecoder(r.Body)
-	var o Objective
-	return dec.Decode(&o)
-
+	err := dec.Decode(&data)
+	return err
 }

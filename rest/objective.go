@@ -1,50 +1,72 @@
 package rest
 
 import (
-	"net/http"
-
+	"context"
 	"cloud.google.com/go/firestore"
-	"path"
+	"github.com/gaffatape-io/p6/crud"
+	"k8s.io/klog"
+	"net/http"
+	"strings"
 )
 
-func registerObjectiveHandlers(c *firestore.Client, mux *http.ServeMux) {
-	oh := objectiveHandler(c)
+func registerObjectiveHandlers(s *crud.Store, mux *http.ServeMux) {
+	oh := objectiveHandler(s, s.RunTx)
 	mux.HandleFunc("/o/", oh)
 	mux.HandleFunc("/o", oh)
 }
 
-func objectiveHandler(c *firestore.Client) http.HandlerFunc {
-	objectives := c.Collection("objectives")
-
+func objectiveHandler(s crud.ObjectiveStore, runTx crud.TxRun) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		klog.V(11).Info(r.Method, " ", r.URL.Path)
 
 		switch {
 		case r.Method == http.MethodPut:
-			handleObjectivePUT(objectives, w, r)
+			handleObjectivePUT(s, runTx, w, r)
 
 		default:
+			klog.Error("Not allowed ", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	}
 }
 
-func handleObjectivePUT(objectives *firestore.CollectionRef, w http.ResponseWriter, r *http.Request) {
-	var o Objective
-	err := decodeRequest(r, &o)
+type Objective struct {
+	HItem
+}
+
+func createObjective(ctx context.Context, s crud.ObjectiveStore, tx *firestore.Transaction, o Objective) (Objective, error) {
+	ob := crud.Objective{crud.HItem{crud.Item{o.Summary, o.Description}, o.ParentID}}
+	obe, err := s.CreateObjective(ctx, tx, ob)
+	return Objective{HItem{Item{obe.ID, obe.Summary, obe.Description}, obe.ParentID}}, err
+}
+
+func handleObjectivePUT(s crud.ObjectiveStore, runTx crud.TxRun, w http.ResponseWriter, r *http.Request) {
+	var objNew Objective
+	err := decodeRequestBody(r, &objNew)
 	if err != nil {
+		klog.Error("decode failed:", r)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	id := path.Base(r.URL.Path)
-	if id != "" {
+	if !strings.HasSuffix(r.URL.Path, "/o") {
+		klog.Error("invalid path:", r.URL.Path)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	_, _, err = objectives.Add(r.Context(), o)
+	if objNew.Summary == "" {
+		klog.Errorf("summary not set:%+v", objNew)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	objCreated, err := createObjective(r.Context(), s, nil, objNew)
 	if err != nil {
+		klog.Errorf("createObjective failed; err:%+v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	klog.Info("objective created:", objCreated.ID)
 }

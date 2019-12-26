@@ -16,7 +16,7 @@ test: $(go_files)
 
 
 integration_test: $(go_files)
-	env -u FIRESTORE_EMULATOR_HOST go test ./...
+	env -u FIRESTORE_EMULATOR_HOST go test -count=1 ./...
 
 
 .PHONY:clean

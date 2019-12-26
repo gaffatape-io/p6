@@ -3,7 +3,7 @@ package rest
 import (
 	"net/http"
 
-	"cloud.google.com/go/firestore"
+	"github.com/gaffatape-io/p6/crud"
 )
 
 // API behavior:
@@ -17,16 +17,16 @@ import (
 // TODO: teams, organization and views
 
 
-func keyResultHandler(c *firestore.Client) http.HandlerFunc {
+func keyResultHandler(s *crud.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		panic("kr")
 	}
 }
 
 // NewMux creates a new ServeMux for the rest API.
-func NewMux(c *firestore.Client) *http.ServeMux {	
+func NewMux(s *crud.Store) *http.ServeMux {	
 	mux := http.NewServeMux()
-	registerObjectiveHandlers(c, mux)
-	mux.HandleFunc("/k/", keyResultHandler(c))
+	registerObjectiveHandlers(s, mux)
+	mux.HandleFunc("/k/", keyResultHandler(s))
 	return mux
 }
