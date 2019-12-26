@@ -81,19 +81,32 @@ func TestObjectiveHandlerPUT_missingParent(t *testing.T) {
 func TestObjectiveHandlerPUT_withParent(t *testing.T) {
 	RunRestTest(t, func(ctx context.Context, e *RestEnv) {
 		sum := e.String("SsSs")
-		parentID := e.String("n0_5uch_p@ren1")
-		o := &Objective{HItem{Item{Summary: sum}, parentID}}
+		o := &Objective{HItem{Item{Summary: sum}, ""}}
 
-		resp := checkResponse(t, http.StatusBadRequest, e.roundTripPUT(ctx, "/o", o))
-		t.Log(resp)
+		resp := checkOK(t, e.roundTripPUT(ctx, "/o", o))
+		var oResp Objective
+		err := readJson(resp.Body, &oResp)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		t.Fatal("insert parent, get ID from response, use in next insert")
+		t.Log(oResp.ID)
+		sum2 := e.String("Ss2Ss2")
+		o2 := &Objective{HItem{Item{Summary: sum2}, oResp.ID}}
+		resp2 := checkOK(t, e.roundTripPUT(ctx, "/o", o2))
+		var oResp2 Objective
+		err = readJson(resp2.Body, &oResp2)
+		if err != nil {
+			t.Fatal(err)
+		}
 
+		t.Log(oResp2.ID)
 		objs := e.Firestore.Collection("objectives")
-		matches, err := objs.Where("Summary", "==", sum).Documents(ctx).GetAll()
-		t.Log(matches, err)
+		doc := objs.Doc(oResp2.ID)
+		_, err = doc.Get(ctx)		
+		t.Log(err)
 
-		if err != nil || len(matches) != 0 {
+		if err != nil {
 			t.Fatal()
 		}
 	})

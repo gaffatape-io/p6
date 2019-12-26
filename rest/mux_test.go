@@ -143,7 +143,7 @@ func checkOK(t *testing.T, resp *http.Response) *http.Response {
 func checkResponse(t *testing.T, code int, resp *http.Response) *http.Response {
 	t.Log(code, resp.StatusCode, resp.Status, http.StatusText(resp.StatusCode))
 	if resp.StatusCode != code {
-		t.Fatal()
+		t.Fatalf("wrong code; got:%+v want:%+v", resp.StatusCode, code)
 	}
 	return resp
 }

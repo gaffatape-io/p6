@@ -24,6 +24,9 @@ func objectiveHandler(s crud.ObjectiveStore, runTx crud.TxRun) http.HandlerFunc 
 		case r.Method == http.MethodPut:
 			handleObjectivePUT(s, runTx, w, r)
 
+		case r.Method == http.MethodPost:
+			handleObjectivePOST(s, runTx, w, r)
+
 		default:
 			klog.Error("Not allowed ", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -56,6 +59,11 @@ func createObjectiveEntity(ctx context.Context, s crud.ObjectiveStore, runTx cru
 	return entity, err
 }
 
+type objectiveHandler struct {
+	s crud.ObjectiveStore
+	runTx crud.TxRun
+}
+
 func handleObjectivePUT(s crud.ObjectiveStore, runTx crud.TxRun, w http.ResponseWriter, r *http.Request) {
 	if !strings.HasSuffix(r.URL.Path, "/o") {
 		klog.Error("invalid path:", r.URL.Path)
@@ -64,7 +72,7 @@ func handleObjectivePUT(s crud.ObjectiveStore, runTx crud.TxRun, w http.Response
 	}
 
 	var o Objective
-	err := decodeRequestBody(r, &o)
+	err := readJson(r.Body, &o)
 	if err != nil {
 		klog.Error("decode failed:", r)
 		w.WriteHeader(http.StatusBadRequest)
@@ -90,4 +98,12 @@ func handleObjectivePUT(s crud.ObjectiveStore, runTx crud.TxRun, w http.Response
 	}
 
 	klog.Info("objective created:", entity.ID)
+	resp := &Objective{HItem{Item{entity.ID, entity.Summary, entity.Description}, entity.ParentID}}
+	err = writeJson(w, resp)
+	if err != nil {
+		klog.Errorf("encodeReponse() failed; err:%+v", err)
+	}
+}
+
+func handleObjectivePOST(s crud.ObjectiveStore, runTx crud.TxRun, w http.ResponseWriter, r *http.Request) {
 }
