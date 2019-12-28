@@ -7,12 +7,6 @@ import (
 	"testing"
 )
 
-func TestObjectiveAllowedMethods(t *testing.T) {
-	RunRestTest(t, func(ctx context.Context, e *RestEnv) {
-		e.checkMethodAllowed(ctx, "/o/<ignored>", http.MethodPut)
-	})
-}
-
 func TestObjectiveHandlerPUT(t *testing.T) {
 	RunRestTest(t, func(ctx context.Context, e *RestEnv) {
 		sum := e.String("SsSs")

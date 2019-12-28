@@ -1,9 +1,8 @@
 package rest
 
 import (
-	"net/http"
-
 	"github.com/gaffatape-io/p6/crud"
+	"net/http"
 )
 
 // API behavior:
@@ -16,7 +15,6 @@ import (
 //
 // TODO: teams, organization and views
 
-
 func keyResultHandler(s *crud.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		panic("kr")
@@ -24,7 +22,7 @@ func keyResultHandler(s *crud.Store) http.HandlerFunc {
 }
 
 // NewMux creates a new ServeMux for the rest API.
-func NewMux(s *crud.Store) *http.ServeMux {	
+func NewMux(s *crud.Store) *http.ServeMux {
 	mux := http.NewServeMux()
 	registerObjectiveHandlers(s, mux)
 	mux.HandleFunc("/k/", keyResultHandler(s))

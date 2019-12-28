@@ -3,7 +3,7 @@ package rest
 import (
 	"cloud.google.com/go/firestore"
 	"context"
-	errs	"github.com/gaffatape-io/gopherrs"
+	errs "github.com/gaffatape-io/gopherrs"
 	"github.com/gaffatape-io/p6/crud"
 	"k8s.io/klog"
 	"net/http"
@@ -11,25 +11,38 @@ import (
 )
 
 func registerObjectiveHandlers(s *crud.Store, mux *http.ServeMux) {
-	oh := objectiveHandler(s, s.RunTx)
+	oh := objectiveHttpHandler(s, s.RunTx)
 	mux.HandleFunc("/o/", oh)
 	mux.HandleFunc("/o", oh)
 }
 
-func objectiveHandler(s crud.ObjectiveStore, runTx crud.TxRun) http.HandlerFunc {
+func objectiveHttpHandler(s crud.ObjectiveStore, runTx crud.TxRun) http.HandlerFunc {
+	h := &objectiveHandler{s, runTx}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		klog.V(11).Info(r.Method, " ", r.URL.Path)
+		handler := func(r *http.Request) (interface{}, error) {
+			klog.Error("Not allowed ", r.Method, r.URL.Path)
+			return nil, errs.InvalidArgumentf(nil, "%s not supported", r.Method)
+		}
 
 		switch {
 		case r.Method == http.MethodPut:
-			handleObjectivePUT(s, runTx, w, r)
+			handler = h.put
 
 		case r.Method == http.MethodPost:
-			handleObjectivePOST(s, runTx, w, r)
+			handler = h.post
+		}
 
-		default:
-			klog.Error("Not allowed ", r.Method, r.URL.Path)
-			w.WriteHeader(http.StatusMethodNotAllowed)
+		resp, err := handler(r)
+		if err != nil {
+			writeStatus(w, err)
+			return
+		}
+
+		err = writeJson(w, resp)
+		if err != nil {
+			klog.Error("Failed to write response; result unsure")
 		}
 	}
 }
@@ -38,72 +51,65 @@ type Objective struct {
 	HItem
 }
 
-func createObjectiveEntity(ctx context.Context, s crud.ObjectiveStore, runTx crud.TxRun, o Objective) (crud.ObjectiveEntity, error) {
+type objectiveHandler struct {
+	s     crud.ObjectiveStore
+	runTx crud.TxRun
+}
+
+func (h *objectiveHandler) createObjectiveEntity(ctx context.Context, o Objective) (crud.ObjectiveEntity, error) {
 	data := crud.Objective{crud.HItem{crud.Item{o.Summary, o.Description}, o.ParentID}}
-	
+
 	if data.ParentID == "" {
-		return s.CreateObjective(ctx, nil, data)
+		return h.s.CreateObjective(ctx, nil, data)
 	}
 
 	var entity crud.ObjectiveEntity
-	err := runTx(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		_, err := s.ReadObjective(ctx, tx, data.ParentID)
+	err := h.runTx(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		_, err := h.s.ReadObjective(ctx, tx, data.ParentID)
 		if err != nil {
 			return err
 		}
 
-		entity, err = s.CreateObjective(ctx, tx, data)
+		entity, err = h.s.CreateObjective(ctx, tx, data)
 		return err
 	})
 
 	return entity, err
 }
 
-type objectiveHandler struct {
-	s crud.ObjectiveStore
-	runTx crud.TxRun
-}
-
-func handleObjectivePUT(s crud.ObjectiveStore, runTx crud.TxRun, w http.ResponseWriter, r *http.Request) {
+func (h *objectiveHandler) put(r *http.Request) (interface{}, error) {
 	if !strings.HasSuffix(r.URL.Path, "/o") {
-		klog.Error("invalid path:", r.URL.Path)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, errs.InvalidArgumentf(nil, "invalid path")
 	}
 
 	var o Objective
 	err := readJson(r.Body, &o)
 	if err != nil {
-		klog.Error("decode failed:", r)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, errs.InvalidArgumentf(nil, "deserialization failed")
 	}
 
 	if o.Summary == "" {
-		klog.Errorf("summary not set:%+v", o)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, errs.InvalidArgumentf(nil, "summary not set")
 	}
 
 	ctx := r.Context()
-	entity, err := createObjectiveEntity(ctx, s, runTx, o)
+	entity, err := h.createObjectiveEntity(ctx, o)
 	if errs.IsNotFound(err) {
-		klog.Errorf("Parent not found:%+v", o)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil, errs.InvalidArgumentf(nil, "parent not found")
 	} else if err != nil {
-		klog.Errorf("createObjectiveEntity failed; err:%+v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, errs.Internal(err)
 	}
 
 	klog.Info("objective created:", entity.ID)
-	resp := &Objective{HItem{Item{entity.ID, entity.Summary, entity.Description}, entity.ParentID}}
-	err = writeJson(w, resp)
-	if err != nil {
-		klog.Errorf("encodeReponse() failed; err:%+v", err)
-	}
+	return &Objective{HItem{Item{entity.ID, entity.Summary, entity.Description}, entity.ParentID}}, nil
 }
 
-func handleObjectivePOST(s crud.ObjectiveStore, runTx crud.TxRun, w http.ResponseWriter, r *http.Request) {
+func (h *objectiveHandler) post(r *http.Request) (interface{}, error) {
+	var o Objective
+	err := readJson(r.Body, &o)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }

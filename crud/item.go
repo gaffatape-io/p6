@@ -5,9 +5,9 @@ type Item struct {
 	Description string
 }
 
-	type HItem struct {
-		Item
-	ParentID    string
+type HItem struct {
+	Item
+	ParentID string
 }
 
 type Entity struct {
