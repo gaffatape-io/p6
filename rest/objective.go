@@ -18,33 +18,12 @@ func registerObjectiveHandlers(s *crud.Store, mux *http.ServeMux) {
 
 func objectiveHttpHandler(s crud.ObjectiveStore, runTx crud.TxRun) http.HandlerFunc {
 	h := &objectiveHandler{s, runTx}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		klog.V(11).Info(r.Method, " ", r.URL.Path)
-		handler := func(r *http.Request) (interface{}, error) {
-			klog.Error("Not allowed ", r.Method, r.URL.Path)
-			return nil, errs.InvalidArgumentf(nil, "%s not supported", r.Method)
-		}
-
-		switch {
-		case r.Method == http.MethodPut:
-			handler = h.put
-
-		case r.Method == http.MethodPost:
-			handler = h.post
-		}
-
-		resp, err := handler(r)
-		if err != nil {
-			writeStatus(w, err)
-			return
-		}
-
-		err = writeJson(w, resp)
-		if err != nil {
-			klog.Error("Failed to write response; result unsure")
-		}
+	d := &methodDispatcher{
+		put:  h.put,
+		post: h.post,
 	}
+
+	return d.dispatch
 }
 
 type Objective struct {
