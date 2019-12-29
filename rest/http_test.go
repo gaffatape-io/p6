@@ -16,6 +16,7 @@ func TestGrpc2HttpCode(t *testing.T) {
 		status int
 	}{
 		{codes.InvalidArgument, http.StatusBadRequest},
+		{codes.FailedPrecondition, http.StatusPreconditionFailed},
 	}
 
 	for _, tc := range tests {

@@ -3,6 +3,7 @@ package crud
 import (
 	"cloud.google.com/go/firestore"
 	"context"
+	errs "github.com/gaffatape-io/gopherrs"
 )
 
 type Store struct {
@@ -22,10 +23,13 @@ func (s *Store) RunTx(ctx context.Context, txf TxFunc) error {
 
 func create(ctx context.Context, tx *firestore.Transaction, doc *firestore.DocumentRef, data interface{}) error {
 	if tx != nil {
-		return tx.Create(doc, data)
+		err := tx.Create(doc, data)
+		//errs.WrapError(&err)
+		return err
 	}
 
 	_, err := doc.Create(ctx, data)
+	//errs.WrapError(&err)
 	return err
 }
 
@@ -39,26 +43,36 @@ func read(ctx context.Context, tx *firestore.Transaction, doc *firestore.Documen
 	}
 
 	if err != nil {
+		//errs.WrapError(&err)
 		return err
 	}
 
-	return snap.DataTo(dest)
+	err = snap.DataTo(dest)
+	//errs.WrapError(&err)
+	return err
 }
 
 func update(ctx context.Context, tx *firestore.Transaction, doc *firestore.DocumentRef, data interface{}) error {
 	if tx != nil {
-		return tx.Set(doc, data)
+		err := tx.Set(doc, data)
+		//errs.WrapError(&err)
+		return err
 	}
 
 	_, err := doc.Set(ctx, data)
+	//errs.WrapError(&err)
 	return err
 }
 
 func delete(ctx context.Context, tx *firestore.Transaction, doc *firestore.DocumentRef) error {
 	if tx != nil {
-		return tx.Delete(doc)
+		err := tx.Delete(doc)
+		//errs.WrapError(&err)
+		return err
 	}
 
-	_, err := doc.Delete(ctx)
+	_, err := doc.Delete(ctx)	
+	errs.WrapErrorf(&err, "doh")
+	errs.Code(nil)	
 	return err
 }

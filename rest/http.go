@@ -12,6 +12,9 @@ func grpc2httpCode(code codes.Code) int {
 	switch code {
 	case codes.InvalidArgument:
 		status = http.StatusBadRequest
+
+	case codes.FailedPrecondition:
+		status = http.StatusPreconditionFailed
 	}
 	return status
 }

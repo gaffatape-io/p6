@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/gaffatape-io/p6/crud"
+	"github.com/gaffatape-io/p6/okrs"
 	. "github.com/gaffatape-io/p6/test"
 	"k8s.io/klog"
 	"net/http"
@@ -76,7 +77,8 @@ type RestTestFunc func(context.Context, *RestEnv)
 
 func RunRestTest(t *testing.T, rtf RestTestFunc) {
 	RunTest(t, func(ctx context.Context, e *Env) {
-		mux := NewMux(&crud.Store{e.Firestore})
+		store := &crud.Store{e.Firestore}
+		mux := NewMux(store, &okrs.Objectives{store, store.RunTx})
 		rtf(ctx, &RestEnv{e, mux})
 	})
 }

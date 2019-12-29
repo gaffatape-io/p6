@@ -2,6 +2,7 @@ package rest
 
 import (
 	"github.com/gaffatape-io/p6/crud"
+	"github.com/gaffatape-io/p6/okrs"
 	"net/http"
 )
 
@@ -22,9 +23,9 @@ func keyResultHandler(s *crud.Store) http.HandlerFunc {
 }
 
 // NewMux creates a new ServeMux for the rest API.
-func NewMux(s *crud.Store) *http.ServeMux {
+func NewMux(s *crud.Store, o *okrs.Objectives) *http.ServeMux {
 	mux := http.NewServeMux()
-	registerObjectiveHandlers(s, mux)
+	registerObjectiveHandlers(o, mux)
 	mux.HandleFunc("/k/", keyResultHandler(s))
 	return mux
 }

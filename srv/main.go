@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"github.com/gaffatape-io/p6/crud"
+	"github.com/gaffatape-io/p6/okrs"
 	"github.com/gaffatape-io/p6/rest"
 	"k8s.io/klog"
 	"net/http"
@@ -27,7 +28,7 @@ func main() {
 	store := &crud.Store{fs}
 	klog.Infof("firestore:%q connected", *firestoreProjectID)
 
-	api := rest.NewMux(store)
+	api := rest.NewMux(store, &okrs.Objectives{store, store.RunTx})
 	klog.Info("p6 server listen starting")
 	err = http.ListenAndServe(*ipPort, api)
 	if err != nil {

@@ -1,23 +1,22 @@
 package rest
 
 import (
-	"cloud.google.com/go/firestore"
-	"context"
 	errs "github.com/gaffatape-io/gopherrs"
 	"github.com/gaffatape-io/p6/crud"
+	"github.com/gaffatape-io/p6/okrs"
 	"k8s.io/klog"
 	"net/http"
 	"strings"
 )
 
-func registerObjectiveHandlers(s *crud.Store, mux *http.ServeMux) {
-	oh := objectiveHttpHandler(s, s.RunTx)
+func registerObjectiveHandlers(o *okrs.Objectives, mux *http.ServeMux) {
+	oh := objectiveHttpHandler(o)
 	mux.HandleFunc("/o/", oh)
 	mux.HandleFunc("/o", oh)
 }
 
-func objectiveHttpHandler(s crud.ObjectiveStore, runTx crud.TxRun) http.HandlerFunc {
-	h := &objectiveHandler{s, runTx}
+func objectiveHttpHandler(o *okrs.Objectives) http.HandlerFunc {
+	h := &objectiveHandler{o}
 	d := &methodDispatcher{
 		put:  h.put,
 		post: h.post,
@@ -26,34 +25,11 @@ func objectiveHttpHandler(s crud.ObjectiveStore, runTx crud.TxRun) http.HandlerF
 	return d.dispatch
 }
 
-type Objective struct {
-	HItem
-}
+type Objective crud.Objective
+type ObjectiveEntity crud.ObjectiveEntity
 
 type objectiveHandler struct {
-	s     crud.ObjectiveStore
-	runTx crud.TxRun
-}
-
-func (h *objectiveHandler) createObjectiveEntity(ctx context.Context, o Objective) (crud.ObjectiveEntity, error) {
-	data := crud.Objective{crud.HItem{crud.Item{o.Summary, o.Description}, o.ParentID}}
-
-	if data.ParentID == "" {
-		return h.s.CreateObjective(ctx, nil, data)
-	}
-
-	var entity crud.ObjectiveEntity
-	err := h.runTx(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		_, err := h.s.ReadObjective(ctx, tx, data.ParentID)
-		if err != nil {
-			return err
-		}
-
-		entity, err = h.s.CreateObjective(ctx, tx, data)
-		return err
-	})
-
-	return entity, err
+	o *okrs.Objectives
 }
 
 func (h *objectiveHandler) put(r *http.Request) (interface{}, error) {
@@ -67,20 +43,18 @@ func (h *objectiveHandler) put(r *http.Request) (interface{}, error) {
 		return nil, errs.InvalidArgumentf(nil, "deserialization failed")
 	}
 
-	if o.Summary == "" {
-		return nil, errs.InvalidArgumentf(nil, "summary not set")
-	}
-
 	ctx := r.Context()
-	entity, err := h.createObjectiveEntity(ctx, o)
-	if errs.IsNotFound(err) {
-		return nil, errs.InvalidArgumentf(nil, "parent not found")
+	entity, err := h.o.Create(ctx, crud.Objective(o))
+	if errs.IsFailedPrecondition(err) {
+		return nil, err
+	} else if errs.IsInvalidArgument(err) {
+		return nil, err
 	} else if err != nil {
 		return nil, errs.Internal(err)
 	}
 
 	klog.Info("objective created:", entity.ID)
-	return &Objective{HItem{Item{entity.ID, entity.Summary, entity.Description}, entity.ParentID}}, nil
+	return ObjectiveEntity(entity), nil
 }
 
 func (h *objectiveHandler) post(r *http.Request) (interface{}, error) {

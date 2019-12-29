@@ -25,7 +25,7 @@ func (e *Env) Name() string {
 }
 
 func (e *Env) String(txt string) string {
-	return fmt.Sprintf("%s-%d-%s", e.Name(), e.IID, txt)
+	return fmt.Sprintf("%s-%d-%d-%s", e.Name(), e.IID, e.T0.Nanosecond(), txt)
 }
 
 func Firestore(ctx context.Context, t *testing.T) *firestore.Client {
