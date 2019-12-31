@@ -9,6 +9,7 @@ import (
 
 type OkrsEnv struct {
 	*Env
+	t     *testing.T
 	store *crud.Store
 }
 
@@ -19,6 +20,6 @@ func (e *OkrsEnv) objectives() *Objectives {
 func RunOkrsTest(t *testing.T, tf func(ctx context.Context, e *OkrsEnv)) {
 	RunTest(t, func(ctx context.Context, e *Env) {
 		store := &crud.Store{e.Firestore}
-		tf(ctx, &OkrsEnv{e, store})
+		tf(ctx, &OkrsEnv{e, t, store})
 	})
 }

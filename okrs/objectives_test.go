@@ -8,12 +8,12 @@ import (
 	"testing"
 )
 
-func TestObjectiveHandlerPUT(t *testing.T) {
+func TestObjectivesCreate(t *testing.T) {
 	RunOkrsTest(t, func(ctx context.Context, e *OkrsEnv) {
 		sum := e.String("SsSs")
 		desc := e.String("DdDd")
 
-		o := crud.Objective{crud.HItem{crud.Item{Summary: sum, Description: desc}, ""}}
+		o := crud.Objective{Summary: sum, Description: desc}
 		oe, err := e.objectives().Create(ctx, o)
 		t.Log(oe, err)
 		if err != nil {
@@ -35,16 +35,17 @@ func TestObjectiveHandlerPUT(t *testing.T) {
 
 		got := matches[0].Data()
 		t.Log(got, want)
+		
 		if !reflect.DeepEqual(matches[0].Data(), want) {
 			t.Fatal()
 		}
 	})
 }
 
-func TestObjectiveHandlerPUT_missingSummary(t *testing.T) {
+func TestObjectivesCreate_missingSummary(t *testing.T) {
 	RunOkrsTest(t, func(ctx context.Context, e *OkrsEnv) {
 		desc := e.String("DDDD")
-		o := crud.Objective{crud.HItem{crud.Item{Description: desc}, ""}}
+		o := crud.Objective{Description: desc}
 
 		oe, err := e.objectives().Create(ctx, o)
 		t.Log(oe, err)
@@ -62,11 +63,32 @@ func TestObjectiveHandlerPUT_missingSummary(t *testing.T) {
 	})
 }
 
-func TestObjectiveHandlerPUT_missingParent(t *testing.T) {
+func TestObjectivesCreate_withID(t *testing.T) {
+	RunOkrsTest(t, func(ctx context.Context, e *OkrsEnv) {
+		sum := e.String("s")
+		o := crud.Objective{ID: "should-not-be-set", Summary:sum}
+
+		oe, err := e.objectives().Create(ctx, o)
+		t.Log(oe, err)
+		if !errs.IsInvalidArgument(err) {
+			t.Fatal()
+		}
+
+		objs := e.Firestore.Collection("objectives")
+		matches, err := objs.Where("Summary", "==", sum).Documents(ctx).GetAll()
+		t.Log(matches, err)
+
+		if err != nil || len(matches) != 0 {
+			t.Fatal()
+		}
+	})
+}
+
+func TestObjectivesCreate_missingParent(t *testing.T) {
 	RunOkrsTest(t, func(ctx context.Context, e *OkrsEnv) {
 		sum := e.String("SsSs")
 		parentID := e.String("n0_5uch_p@ren1")
-		o := crud.Objective{crud.HItem{crud.Item{Summary: sum}, parentID}}
+		o := crud.Objective{Summary: sum, ParentID:parentID}
 
 		oe, err := e.objectives().Create(ctx, o)
 		t.Log(oe, err)
@@ -84,36 +106,33 @@ func TestObjectiveHandlerPUT_missingParent(t *testing.T) {
 	})
 }
 
-// func TestObjectiveHandlerPUT_withParent(t *testing.T) {
-// 	RunRestTest(t, func(ctx context.Context, e *RestEnv) {
-// 		sum := e.String("SsSs")
-// 		o := &Objective{HItem{Item{Summary: sum}, ""}}
+func TestObjectivesCreate_withParent(t *testing.T) {
+	RunOkrsTest(t, func(ctx context.Context, e *OkrsEnv) {
+		sum := e.String("SsSs")
+		o := crud.Objective{Summary:sum}
 
-// 		resp := checkOK(t, e.roundTripPUT(ctx, "/o", o))
-// 		var oResp Objective
-// 		err := readJson(resp.Body, &oResp)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
+		objectives := e.objectives()
+		oe, err := objectives.Create(ctx, o)
+		t.Log(oe, err)
+		if err != nil {
+			t.Fatal()
+		}	
 
-// 		t.Log(oResp.ID)
-// 		sum2 := e.String("Ss2Ss2")
-// 		o2 := &Objective{HItem{Item{Summary: sum2}, oResp.ID}}
-// 		resp2 := checkOK(t, e.roundTripPUT(ctx, "/o", o2))
-// 		var oResp2 Objective
-// 		err = readJson(resp2.Body, &oResp2)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
+		sum2 := e.String("Ss2Ss2")
+		o2 := crud.Objective{Summary: sum2, ParentID: oe.ID}
+		oe2, err := objectives.Create(ctx, o2)
+		t.Log(oe2, err)
+		if err != nil {
+			t.Fatal()
+		}		
 
-// 		t.Log(oResp2.ID)
-// 		objs := e.Firestore.Collection("objectives")
-// 		doc := objs.Doc(oResp2.ID)
-// 		_, err = doc.Get(ctx)
-// 		t.Log(err)
+		objs := e.Firestore.Collection("objectives")
+		doc := objs.Doc(oe2.ID)
+		_, err = doc.Get(ctx)
+		t.Log(err)
 
-// 		if err != nil {
-// 			t.Fatal()
-// 		}
-// 	})
-// }
+		if err != nil {
+			t.Fatal()
+		}
+	})
+}

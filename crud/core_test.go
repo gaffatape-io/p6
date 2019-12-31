@@ -20,40 +20,38 @@ type CoreTestFunc func(context.Context, *CoreEnv)
 func runCoreEnv(t *testing.T, ct CoreTestFunc) {
 	RunTest(t, func(ctx context.Context, e *Env) {
 		col := e.Firestore.Collection("core_data")
-		data := CoreData{e.String("foo"), 123}
+		data := CoreData{"", e.String("foo"), 123}
 		ct(ctx, &CoreEnv{e, col, data})
 	})
 }
 
 type CoreData struct {
+	ID    string `firestore:"-"`
 	Name  string
 	Count int
 }
 
-type CoreDataEntity struct {
-	Entity
-	CoreData
-}
-
-func (c *CoreEnv) CreateCoreData(ctx context.Context, tx *firestore.Transaction, o CoreData) (CoreDataEntity, error) {
+func (c *CoreEnv) CreateCoreData(ctx context.Context, tx *firestore.Transaction, o CoreData) (CoreData, error) {
 	doc := c.col.NewDoc()
 	err := create(ctx, tx, doc, o)
-	return CoreDataEntity{Entity{doc.ID}, o}, err
+	o.ID = doc.ID
+	return o, err
 }
 
-func (c *CoreEnv) ReadCoreData(ctx context.Context, tx *firestore.Transaction, id string) (CoreDataEntity, error) {
+func (c *CoreEnv) ReadCoreData(ctx context.Context, tx *firestore.Transaction, id string) (CoreData, error) {
 	doc := c.col.Doc(id)
 	o := CoreData{}
 	err := read(ctx, tx, doc, &o)
-	return CoreDataEntity{Entity{doc.ID}, o}, err
+	o.ID = doc.ID
+	return o, err
 }
 
-func (c *CoreEnv) UpdateCoreData(ctx context.Context, tx *firestore.Transaction, o CoreDataEntity) error {
+func (c *CoreEnv) UpdateCoreData(ctx context.Context, tx *firestore.Transaction, o CoreData) error {
 	doc := c.col.Doc(o.ID)
-	return update(ctx, tx, doc, o.CoreData)
+	return update(ctx, tx, doc, o)
 }
 
-func (c *CoreEnv) DeleteCoreData(ctx context.Context, tx *firestore.Transaction, o CoreDataEntity) error {
+func (c *CoreEnv) DeleteCoreData(ctx context.Context, tx *firestore.Transaction, o CoreData) error {
 	doc := c.col.Doc(o.ID)
 	return delete(ctx, tx, doc)
 }
@@ -135,7 +133,8 @@ func TestCoreUpdate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		de.CoreData = CoreData{e.String("bar"), 234}
+		de.Name = e.String("bar")
+		de.Count = 234
 		err = e.UpdateCoreData(ctx, nil, de)
 		if err != nil {
 			t.Fatal()
@@ -154,27 +153,28 @@ func TestCoreUpdate(t *testing.T) {
 
 func TestCoreUpdateTx(t *testing.T) {
 	runCoreEnv(t, func(ctx context.Context, e *CoreEnv) {
-		de, err := e.CreateCoreData(ctx, nil, e.data)
+		data, err := e.CreateCoreData(ctx, nil, e.data)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		e.Firestore.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-			de.CoreData = CoreData{e.String("bar"), 234}
-			err = e.UpdateCoreData(ctx, tx, de)
+			data.Name = e.String("bar")
+			data.Count = 234
+			err = e.UpdateCoreData(ctx, tx, data)
 			if err != nil {
 				t.Fatal()
 			}
 			return nil
 		})
 
-		de2, err := e.ReadCoreData(ctx, nil, de.ID)
+		data2, err := e.ReadCoreData(ctx, nil, data.ID)
 		if err != nil {
 			t.Fatal()
 		}
 
-		if !reflect.DeepEqual(de2, de) {
-			t.Fatal(de2, de)
+		if !reflect.DeepEqual(data2, data) {
+			t.Fatal(data2, data)
 		}
 	})
 }
@@ -216,6 +216,28 @@ func TestCoreDeleteTx(t *testing.T) {
 		_, err = e.ReadCoreData(ctx, nil, de.ID)
 		if err == nil {
 			t.Fatal(err)
+		}
+	})
+}
+
+// TestFirestoreJson was added to investigate how to make firestore ignore the
+// ID field which is part of the object of the API but not part of the schema.
+// TL;DR; use `firestore:"-"` to ensure it is not persisted.
+func TestFirestoreJson(t *testing.T) {
+	runCoreEnv(t, func(ctx context.Context, e *CoreEnv) {
+		data, err := e.CreateCoreData(ctx, nil, e.data)
+		t.Log(data, err)
+
+		doc, err := e.col.Doc(data.ID).Get(ctx)
+		t.Log(doc, err)
+		if err != nil {
+			t.Fatal()
+		}
+
+		t.Log(doc.Data())
+
+		if _, ok := doc.Data()["ID"]; ok {
+			t.Fatal("found ignored field")
 		}
 	})
 }

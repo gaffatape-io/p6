@@ -18,6 +18,7 @@ type Env struct {
 	T0        time.Time
 	IID       int64
 	Rnd       *rand.Rand
+	IDCount   int
 }
 
 func (e *Env) Name() string {
@@ -25,7 +26,8 @@ func (e *Env) Name() string {
 }
 
 func (e *Env) String(txt string) string {
-	return fmt.Sprintf("%s-%d-%d-%s", e.Name(), e.IID, e.T0.Nanosecond(), txt)
+	e.IDCount++
+	return fmt.Sprintf("%s-%d-%d%d-%s", e.Name(), e.IID, e.T0.Second(), e.IDCount, txt)
 }
 
 func Firestore(ctx context.Context, t *testing.T) *firestore.Client {
@@ -43,7 +45,7 @@ func RunTest(t *testing.T, f TestFunc) {
 	fs := Firestore(ctx, t)
 	t0 := time.Now()
 	rnd := rand.New(rand.NewSource(t0.Unix()))
-	env := &Env{t, fs, t0, rnd.Int63n(max63n), rnd}
+	env := &Env{t, fs, t0, rnd.Int63n(max63n), rnd, 0}
 	klog.Info(">>>", t.Name(), " start")
 	defer klog.Info("<<<", t.Name(), " end")
 	f(ctx, env)

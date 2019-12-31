@@ -26,7 +26,6 @@ func objectiveHttpHandler(o *okrs.Objectives) http.HandlerFunc {
 }
 
 type Objective crud.Objective
-type ObjectiveEntity crud.ObjectiveEntity
 
 type objectiveHandler struct {
 	o *okrs.Objectives
@@ -43,8 +42,7 @@ func (h *objectiveHandler) put(r *http.Request) (interface{}, error) {
 		return nil, errs.InvalidArgumentf(nil, "deserialization failed")
 	}
 
-	ctx := r.Context()
-	entity, err := h.o.Create(ctx, crud.Objective(o))
+	entity, err := h.o.Create(r.Context(), crud.Objective(o))
 	if errs.IsFailedPrecondition(err) {
 		return nil, err
 	} else if errs.IsInvalidArgument(err) {
@@ -54,9 +52,10 @@ func (h *objectiveHandler) put(r *http.Request) (interface{}, error) {
 	}
 
 	klog.Info("objective created:", entity.ID)
-	return ObjectiveEntity(entity), nil
+	return Objective(entity), nil
 }
 
+// post updates an Objective entity path: .../o/<object-id>
 func (h *objectiveHandler) post(r *http.Request) (interface{}, error) {
 	var o Objective
 	err := readJson(r.Body, &o)

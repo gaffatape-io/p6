@@ -9,6 +9,7 @@ import (
 
 func TestRunTest(t *testing.T) {
 	RunTest(t, func(ctx context.Context, e *Env) {
+		t.Log(e.T0)
 		t.Log(e)
 		if ctx == nil {
 			t.Fatal()
@@ -35,5 +36,13 @@ func TestRunTest(t *testing.T) {
 		if !strings.HasSuffix(str, "hello world") {
 			t.Fatal()
 		}
+		
+		s0 := e.String("hello")
+		s1 := e.String("hello")
+		t.Log(s0, s1)
+		if s0 == s1 {
+			t.Fatal(s0, s1)
+		}
+		
 	})
 }
