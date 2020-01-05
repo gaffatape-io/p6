@@ -78,7 +78,7 @@ type RestTestFunc func(context.Context, *RestEnv)
 func RunRestTest(t *testing.T, rtf RestTestFunc) {
 	RunTest(t, func(ctx context.Context, e *Env) {
 		store := &crud.Store{e.Firestore}
-		mux := NewMux(store, &okrs.Objectives{store, store.RunTx})
+		mux := NewMux(store, &okrs.Objectives{Objectives:store, RunTx:store.RunTx})
 		rtf(ctx, &RestEnv{e, mux})
 	})
 }

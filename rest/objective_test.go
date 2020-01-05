@@ -26,6 +26,7 @@ func TestObjectiveHandlerPUT(t *testing.T) {
 			"Summary":     sum,
 			"Description": desc,
 			"ParentID":    "",
+			"Deleted":     false,
 		}
 
 		got := matches[0].Data()
@@ -86,7 +87,7 @@ func TestObjectiveHandlerPUT_withParent(t *testing.T) {
 
 		t.Log(oResp.ID)
 		sum2 := e.String("Ss2Ss2")
-		o2 := &Objective{Summary: sum2, ParentID:oResp.ID}
+		o2 := &Objective{Summary: sum2, ParentID: oResp.ID}
 		resp2 := checkOK(t, e.roundTripPUT(ctx, "/o", o2))
 		var oResp2 Objective
 		err = readJson(resp2.Body, &oResp2)

@@ -10,13 +10,14 @@ type Objective struct {
 	ParentID    string
 	Summary     string
 	Description string
+	Deleted     bool
 }
 
 type ObjectiveStore interface {
 	CreateObjective(ctx context.Context, tx *firestore.Transaction, o Objective) (Objective, error)
 	ReadObjective(ctx context.Context, tx *firestore.Transaction, id string) (Objective, error)
 	UpdateObjective(ctx context.Context, tx *firestore.Transaction, o Objective) error
-	DeleteObjective(ctx context.Context, tx *firestore.Transaction, o Objective) error
+	DeleteObjective(ctx context.Context, tx *firestore.Transaction, id string) error
 }
 
 func (s *Store) objectives() *firestore.CollectionRef {
@@ -51,7 +52,7 @@ func (s *Store) UpdateObjective(ctx context.Context, tx *firestore.Transaction, 
 	return update(ctx, tx, doc, o)
 }
 
-func (s *Store) DeleteObjective(ctx context.Context, tx *firestore.Transaction, o Objective) error {
-	doc := s.objectives().Doc(o.ID)
+func (s *Store) DeleteObjective(ctx context.Context, tx *firestore.Transaction, id string) error {
+	doc := s.objectives().Doc(id)
 	return delete(ctx, tx, doc)
 }

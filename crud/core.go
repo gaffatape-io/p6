@@ -24,12 +24,12 @@ func (s *Store) RunTx(ctx context.Context, txf TxFunc) error {
 func create(ctx context.Context, tx *firestore.Transaction, doc *firestore.DocumentRef, data interface{}) error {
 	if tx != nil {
 		err := tx.Create(doc, data)
-		//errs.WrapError(&err)
+		errs.WrapError(&err)
 		return err
 	}
 
 	_, err := doc.Create(ctx, data)
-	//errs.WrapError(&err)
+	errs.WrapError(&err)
 	return err
 }
 
@@ -43,24 +43,28 @@ func read(ctx context.Context, tx *firestore.Transaction, doc *firestore.Documen
 	}
 
 	if err != nil {
-		//errs.WrapError(&err)
+		errs.WrapError(&err)
 		return err
 	}
 
 	err = snap.DataTo(dest)
-	//errs.WrapError(&err)
+	errs.WrapError(&err)
 	return err
+}
+
+func readAll(ctx context.Context, tx *firestore.Transaction, docs []*firestore.DocumentRef) ([]*firestore.DocumentRef, error) {
+	return nil, nil
 }
 
 func update(ctx context.Context, tx *firestore.Transaction, doc *firestore.DocumentRef, data interface{}) error {
 	if tx != nil {
 		err := tx.Set(doc, data)
-		//errs.WrapError(&err)
+		errs.WrapError(&err)
 		return err
 	}
 
 	_, err := doc.Set(ctx, data)
-	//errs.WrapError(&err)
+	errs.WrapError(&err)
 	return err
 }
 

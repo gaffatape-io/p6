@@ -28,7 +28,11 @@ func main() {
 	store := &crud.Store{fs}
 	klog.Infof("firestore:%q connected", *firestoreProjectID)
 
-	api := rest.NewMux(store, &okrs.Objectives{store, store.RunTx})
+	api := rest.NewMux(store, &okrs.Objectives{
+		Objectives:store,
+		RunTx:store.RunTx,
+	})
+	
 	klog.Info("p6 server listen starting")
 	err = http.ListenAndServe(*ipPort, api)
 	if err != nil {
